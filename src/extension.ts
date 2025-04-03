@@ -3,63 +3,63 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 export function activate(context: vscode.ExtensionContext) {
-	let disposable = vscode.commands.registerCommand('extension.generateGitCheckoutCommand', async () => {
-		const panel = vscode.window.createWebviewPanel(
-			'gitCheckoutHelper',
-			'Git Checkout Helper',
-			vscode.ViewColumn.One,
-			{
-				enableScripts: true,
-				localResourceRoots: [vscode.Uri.file(context.extensionPath)]
-			}
-		);
+    let disposable = vscode.commands.registerCommand('extension.generateGitCheckoutCommand', async () => {
+        const panel = vscode.window.createWebviewPanel(
+            'gitCheckoutHelper',
+            'Git Checkout Helper',
+            vscode.ViewColumn.One,
+            {
+                enableScripts: true,
+                localResourceRoots: [vscode.Uri.file(context.extensionPath)]
+            }
+        );
 
-		panel.webview.html = getWebviewContent();
-		panel.webview.onDidReceiveMessage(async message => {
-			if (message.command === 'generate') {
-				const { branch, gitOutput } = message.data;
-				const paths = parseGitOutput(gitOutput);
+        panel.webview.html = getWebviewContent();
+        panel.webview.onDidReceiveMessage(async message => {
+            if (message.command === 'generate') {
+                const { branch, gitOutput } = message.data;
+                const paths = parseGitOutput(gitOutput);
 
-				if (paths.length === 0) {
-					vscode.window.showErrorMessage('No se encontraron archivos válidos');
-					return;
-				}
+                if (paths.length === 0) {
+                    vscode.window.showErrorMessage('No se encontraron archivos válidos');
+                    return;
+                }
 
 
-				const quotedPaths = paths.map(p => (p.includes(' ') ? `'${p}'` : p));
-				const command = `git checkout ${branch} -- ${quotedPaths.join(' ')}`;
+                const quotedPaths = paths.map(p => (p.includes(' ') ? `'${p}'` : p));
+                const command = `git checkout ${branch} -- ${quotedPaths.join(' ')}`;
 
-				panel.webview.postMessage({ command: 'result', data: command });
-			} else if (message.command === 'showMessage') {
-				vscode.window.showInformationMessage(message.data);
-			}
-		});
-	});
+                panel.webview.postMessage({ command: 'result', data: command });
+            } else if (message.command === 'showMessage') {
+                vscode.window.showInformationMessage(message.data);
+            }
+        });
+    });
 
-	context.subscriptions.push(disposable);
+    context.subscriptions.push(disposable);
 }
 
 function parseGitOutput(output: string): string[] {
-	const lines = output.split('\n');
-	const paths: string[] = [];
+    const lines = output.split('\n');
+    const paths: string[] = [];
 
-	const regex = /^\s*(?:modified|new file|deleted|renamed):\s*(.*)$/i;
+    const regex = /^\s*(?:modified|new file|deleted|renamed):\s*(.*)$/i;
 
-	for (const line of lines) {
-		const match = line.match(regex);
-		if (match) {
-			const cleanedPath = match[1].trim();
-			if (cleanedPath) {
-				paths.push(cleanedPath);
-			}
-		}
-	}
+    for (const line of lines) {
+        const match = line.match(regex);
+        if (match) {
+            const cleanedPath = match[1].trim();
+            if (cleanedPath) {
+                paths.push(cleanedPath);
+            }
+        }
+    }
 
-	return paths;
+    return paths;
 }
 
 function getWebviewContent() {
-	return `
+    return `
     <!DOCTYPE html>
     <html>
     <head>
@@ -90,6 +90,13 @@ function getWebviewContent() {
                 cursor: pointer;
                 margin-top: 10px;
             }
+            .history-section { margin-top: 30px; border-top: 1px solid #ccc; padding-top: 20px; }
+            .history-input { margin: 10px 0; }
+            .history-output { 
+            height: 150px;
+            background:rgb(83, 186, 204);
+		    color: black;
+                 }
         </style>
     </head>
     <body>
@@ -108,6 +115,20 @@ function getWebviewContent() {
                 <pre id="result"></pre>
                 <button onclick="copyCommand()">Copiar al Portapapeles</button>
             </div>
+        </div>
+
+        <div class="history-section">
+            <h3>Generar Historial de Cambios</h3>
+            <input type="text" id="commitMessage" class="history-input" placeholder="COMMIT: ">
+            <select id="changeType" class="history-input">
+                <option value="FRONTEND">FRONTEND</option>
+                <option value="BACKEND">BACKEND</option>
+                <option value="OTRO">OTRO</option>
+            </select>
+            <button onclick="generateHistory()">Generar Historial</button>
+            
+            <textarea id="historyOutput" class="history-output"></textarea>
+            <button onclick="copyHistory()">Copiar Historial</button>
         </div>
         
         <script>
@@ -140,6 +161,27 @@ function copyCommand() {
         })
         .catch(err => console.error('Error al copiar:', err));
 }
+        function generateHistory() {
+                const commit = document.getElementById('commitMessage').value;
+                const type = document.getElementById('changeType').value;
+                const files = document.getElementById('gitOutput').value.split('\\n').filter(l => l.trim());
+                
+                const date = new Date();
+                const formattedDate = \`\${date.getDate().toString().padStart(2, '0')}/\${(date.getMonth()+1).toString().padStart(2, '0')}/\${date.getFullYear().toString().slice(-2)} \${date.getHours()}:\${date.getMinutes().toString().padStart(2, '0')} HS\`;
+                
+                let output = \`\${type}: \${formattedDate}\\nCOMMIT: \${commit}\\n\`;
+                files.forEach(line => output += \`        \${line.trim()}\\n\`);
+                output += '\\n-------------------------------------------------------------------------------------------------------------------------';
+                
+                document.getElementById('historyOutput').value = output;
+            }
+
+            function copyHistory() {
+                const text = document.getElementById('historyOutput').value;
+                navigator.clipboard.writeText(text)
+                    .then(() => vscode.postMessage({ command: 'showMessage', data: '¡Historial copiado!' }))
+                    .catch(err => console.error(err));
+            }
         </script>
     </body>
     </html>
