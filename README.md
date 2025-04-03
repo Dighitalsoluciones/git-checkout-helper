@@ -8,6 +8,7 @@
 **Git Checkout Helper** es una herramienta para desarrolladores que trabajan con múltiples ramas en Git.  
 Automatiza la generación de comandos `git checkout <rama> -- <archivos>` para copiar archivos modificados/nuevos desde una rama a otra, **sin necesidad de formatear manualmente las rutas**.
 
+
 ![Demo](https://i.ibb.co/2P4q4wD/git-checkout-helper-demo.gif)
 
 ---
